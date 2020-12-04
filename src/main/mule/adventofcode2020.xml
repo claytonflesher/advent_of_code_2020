@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="baf5d09b-d15e-42c3-8af8-5e63512d1e41" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="Day1-Part1" doc:id="84d8b255-435a-4e5e-818b-9de733235174" >
+		<ee:transform doc:name="Transform Message" doc:id="9156a1bb-c868-4d30-b46b-fcad49282aca" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+import some from dw::core::Arrays
+var inputData = readUrl("classpath://inputs/day1.txt", "application/csv", {"header": false})
+var numberList = inputData.column_0 map ($ as Number)
+---
+(numberList filter ((item, index) -> numberList some (item + $ == 2020))) 
+	reduce ((item, acc) -> acc * item)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="Day1-Part2" doc:id="2664f507-af14-4088-a180-101c090b7ed2" >
+		<http:listener doc:name="Listener" doc:id="af1f2649-fc1a-4db8-aaea-ba5379de46d3" config-ref="HTTP_Listener_config" path="/day1part2"/>
+		<ee:transform doc:name="Transform Message" doc:id="0aac3cd1-41f1-4a7f-a354-d561c5287506">
+			<ee:message>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="numberList" ><![CDATA[%dw 2.0
+output application/java
+var inputData = readUrl("classpath://inputs/day1.txt", "application/csv", {"header": false})
+var numberList = inputData.column_0 map ($ as Number)
+---
+numberList]]></ee:set-variable>
+				<ee:set-variable variableName="finalOutput" ><![CDATA[%dw 2.0
+output application/java
+---
+0]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<foreach doc:name="For Each" doc:id="9a74c113-7a2a-4a53-9d41-914b95cf2a2b" collection="#[vars.numberList]">
+			<ee:transform doc:name="Transform Message" doc:id="6be0828f-16cc-4833-a587-a91c52dc011c">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+(vars.numberList - payload) map [$, payload]]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<foreach doc:name="For Each" doc:id="608a3758-a712-40a3-8893-2030beec47ce" >
+				<ee:transform doc:name="Transform Message" doc:id="55c80806-1724-4b9d-80c6-3c3b32cf9e3b">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+flatten(((vars.numberList - 'payload') map (payload + $)) filter (trio) -> sum(trio) ~= 2020)]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<choice doc:name="Choice" doc:id="dbb4bcaa-24fd-4c2a-ab49-d21b22727c34">
+						<when expression="#[sizeOf(payload) &gt; 0]">
+							<set-variable value="#[payload reduce ((item, acc) -&gt; acc * item)]" doc:name="Set Variable" doc:id="90400544-cd6b-44ed-a9b5-4cb32ff92bbb" variableName="finalOutput" />
+						</when>
+					</choice>
+			</foreach>
+		</foreach>
+		<ee:transform doc:name="Transform Message" doc:id="adac2803-a154-427a-bbb0-a0bf27f04b68" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.finalOutput]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="Day2-Part1" doc:id="26bc8cd5-a42c-4e76-951d-68b9430d71f9" >
+		<ee:transform doc:name="Transform Message" doc:id="2e14d3da-3330-4e2c-b380-8ffb4111b22d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day2.txt", "application/csv", {"header": false})
+var grp = (string) -> flatten(string scan /[\da-z]+/)
+var potentialPasswords = inputData.column_0 map (
+    using (group = grp($))
+    {
+        lowest: group[0] as Number,
+        highest: group[1] as Number,
+        letter: group[2],
+        password: group[3]
+
+    }
+)
+---
+using (validPasswords = potentialPasswords map (candidate) -> 
+    using (
+        units = (candidate.password 
+            replace (("[^" ++ candidate.letter ++ "]") as Regex)
+            with "")) 
+    sizeOf(units))
+
+sizeOf(validPasswords filter (item, index) -> (
+	item >= potentialPasswords[index].lowest
+) and
+	item <= potentialPasswords[index].highest)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="Day2Part2" doc:id="65a2aadd-f9b4-4910-8c21-81e275a3bf75" >
+		<ee:transform doc:name="Transform Message" doc:id="aaf640c7-fb0f-4b59-a3f1-7c6a19ae7c6b" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day2.txt", "application/csv", {"header": false})
+var grp = (string) -> flatten(string scan /[\da-z]+/)
+var potentialPasswords = inputData.column_0 map (
+    using (group = grp($))
+    {
+        lowest: group[0] as Number,
+        highest: group[1] as Number,
+        letter: group[2],
+        password: group[3]
+
+    }
+)
+var allPasswords = potentialPasswords map (item) -> using (
+	pair = (item.password[item.lowest - 1] default ""
+) ++ (item.password[item.highest - 1] default ""))
+item ++ {
+	pair: [pair[0], pair[1]],
+	valid: (pair[0] != pair[1]) and (pair contains item.letter)
+}
+---
+sizeOf(allPasswords filter $.valid)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="Day3Part1" doc:id="88da5777-1fcf-43e2-8f7b-5599406c3884" >
+		<ee:transform doc:name="Transform Message" doc:id="f7461725-7ded-42d3-a0d2-fe7c265f4829" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day3.txt", "application/csv", {"header": false})
+var  graph = inputData.column_0 map ($ splitBy "")
+var rowSizes = sizeOf(graph[0])
+var totalRows = sizeOf(graph)
+var steps = graph map (row, index) -> row[mod(index * 3, rowSizes)]
+---
+sizeOf(steps filter $ == "#")]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="Day3Part2" doc:id="7ddeb3ef-64cf-4299-b41d-1bce95a74b43" >
+		<ee:transform doc:name="Transform Message" doc:id="3d7f5b03-4f00-4e4a-bcf7-d24381fd5331" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day3.txt", "application/csv", {"header": false})
+var  graph = inputData.column_0 map ($ splitBy "")
+var rowSizes = sizeOf(graph[0])
+var totalRows = sizeOf(graph)
+var calculate = (steps_right) -> graph map (row, index) -> row[mod(index * steps_right, rowSizes)]
+
+var scenario_1 = sizeOf(calculate(1) filter $ == "#")
+var scenario_2 = sizeOf(calculate(3) filter $ == "#")
+var scenario_3 = sizeOf(calculate(5) filter $ == "#")
+var scenario_4 = sizeOf(calculate(7) filter $ == "#")
+
+var scenario_5 = using(sc5_steps = (graph filter ((row, index) -> isEven(index))) map (row, index) -> row[mod(index * 1, rowSizes)])
+	sizeOf(sc5_steps filter $ == "#")
+	
+var scenarios = [scenario_1, scenario_2, scenario_3, scenario_4, scenario_5]
+---
+scenarios reduce ((item, acc) -> acc * item)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="Day4Part1" doc:id="e8bcb488-b77b-44cc-8b89-335074c63e8a" >
+		<ee:transform doc:name="Transform Message" doc:id="b12ca575-71fa-4bff-aa86-8a368104ba2f" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day4.txt", "text/plain")
+var passportStringArrays = (inputData splitBy "\n\n") map ($ splitBy "\n")
+var stringParser = (string) -> ((string splitBy " ") map ($ splitBy ":")) reduce (item, acc= {}) -> acc ++ {(item[0]): item[1]}
+var passportValidator = (passport: Object) -> 
+	using (keys = namesOf(passport))
+		(keys contains "byr") and
+		(keys contains "iyr") and 
+		(keys contains "eyr") and 
+		(keys contains "hgt") and
+		(keys contains "hcl") and
+		(keys contains "ecl") and
+		(keys contains "pid")
+var passports = passportStringArrays map (
+	$ map stringParser($)
+) map ($ reduce (item, acc = {}) -> acc ++ item)
+---
+sizeOf(passports filter passportValidator($))]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="Day4Part2" doc:id="edea382c-0e0a-488d-b7cb-3205e7b35fb0" >
+		<ee:transform doc:name="Transform Message" doc:id="9fea8eb9-1261-4e0a-8811-d2dcc6c7bc13" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day4.txt", "text/plain")
+var passportStringArrays = (inputData splitBy "\n\n") map ($ splitBy "\n")
+
+var stringParser = (string) -> 
+	((string splitBy " ") map ($ splitBy ":")) 
+		reduce (item, acc = {}) -> acc ++ {(item[0]): item[1]}
+		
+var passports = passportStringArrays map ($ map stringParser($)) map ($ reduce (item, acc = {}) -> acc ++ item)
+
+var passportValidator = (passport: Object) -> 
+	using (keys = namesOf(passport))
+		birthYearValidator(passport, keys) and
+		issueYearValidator(passport, keys) and 
+		expirationYearValidator(passport, keys) and 
+		heightValidator(passport, keys) and 
+		hairColorValidator(passport, keys) and 
+		eyeColorValidator(passport, keys) and 
+		passportIDValidator(passport, keys)
+
+var birthYearValidator = (passport: Object, keys: Array) -> 
+	(keys contains "byr") and
+	(passport.byr matches /\d{4}/) and
+	(passport.byr as Number >= 1920) and
+	(passport.byr as Number <= 2002)
+	
+var issueYearValidator = (passport: Object, keys: Array) ->
+	(keys contains "iyr") and
+	(passport.iyr matches /\d{4}/) and
+	(passport.iyr as Number >= 2010) and
+	(passport.iyr as Number <= 2020)
+	
+var expirationYearValidator = (passport: Object, keys: Array) ->
+	(keys contains "eyr") and
+	(passport.eyr matches /\d{4}/) and
+	(passport.eyr as Number >= 2020) and
+	(passport.eyr as Number <= 2030)
+
+var heightValidator = (passport: Object, keys: Array) ->
+	(keys contains "hgt") and
+	(passport.hgt match {
+	    case hgt matches /\d+cm/ -> 
+	        (hgt[0][0 to -3] as Number >= 150) and
+	        (hgt[0][0 to -3] as Number <= 193)
+	    case hgt matches /\d+in/ ->
+	        (hgt[0][0 to -3] as Number >= 59) and
+	        (hgt[0][0 to -3] as Number <= 76)
+	    else -> false
+	})
+	
+var hairColorValidator = (passport: Object, keys: Array) ->
+	(keys contains "hcl") and
+	(passport.hcl matches /#[a-f0-9]{6}/)
+	
+var eyeColorValidator = (passport: Object, keys: Array) ->
+	(keys contains "ecl") and
+	(["amb", "blu", "brn", "gry", "grn", "hzl", "oth"] contains passport.ecl)
+	
+var passportIDValidator = (passport: Object, keys: Array) ->
+	(keys contains "pid") and
+	(passport.pid matches /\d{9}/)
+---
+sizeOf(passports filter passportValidator($))]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
