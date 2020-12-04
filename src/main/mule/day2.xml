@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="Day2-Part1" doc:id="d5b57300-dffa-4078-8282-d4093a5f28d6" >
+		<ee:transform doc:name="Transform Message" doc:id="8ed6d72a-9831-4ec1-bf6f-2740729cd7aa" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day2.txt", "application/csv", {"header": false})
+var grp = (string) -> flatten(string scan /[\da-z]+/)
+var potentialPasswords = inputData.column_0 map (
+    using (group = grp($))
+    {
+        lowest: group[0] as Number,
+        highest: group[1] as Number,
+        letter: group[2],
+        password: group[3]
+
+    }
+)
+---
+using (validPasswords = potentialPasswords map (candidate) -> 
+    using (
+        units = (candidate.password 
+            replace (("[^" ++ candidate.letter ++ "]") as Regex)
+            with "")) 
+    sizeOf(units))
+
+sizeOf(validPasswords filter (item, index) -> (
+	item >= potentialPasswords[index].lowest
+) and
+	item <= potentialPasswords[index].highest)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="Day2Part2" doc:id="04dfc41b-1d15-4128-a612-1593efa20017" >
+		<ee:transform doc:name="Transform Message" doc:id="06fb9185-d98f-4fab-b113-74ee0b6cae16" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day2.txt", "application/csv", {"header": false})
+var grp = (string) -> flatten(string scan /[\da-z]+/)
+var potentialPasswords = inputData.column_0 map (
+    using (group = grp($))
+    {
+        lowest: group[0] as Number,
+        highest: group[1] as Number,
+        letter: group[2],
+        password: group[3]
+
+    }
+)
+var allPasswords = potentialPasswords map (item) -> using (
+	pair = (item.password[item.lowest - 1] default ""
+) ++ (item.password[item.highest - 1] default ""))
+item ++ {
+	pair: [pair[0], pair[1]],
+	valid: (pair[0] != pair[1]) and (pair contains item.letter)
+}
+---
+sizeOf(allPasswords filter $.valid)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+		<flow name="Day3Part1" doc:id="9b5a660a-d01f-46fb-a1c4-52a142a21e39" >
+		<ee:transform doc:name="Transform Message" doc:id="68e86c3f-fd3e-4a42-8af1-7558fd3894b4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day3.txt", "application/csv", {"header": false})
+var  graph = inputData.column_0 map ($ splitBy "")
+var rowSizes = sizeOf(graph[0])
+var totalRows = sizeOf(graph)
+var steps = graph map (row, index) -> row[mod(index * 3, rowSizes)]
+---
+sizeOf(steps filter $ == "#")]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="Day3Part2" doc:id="2ac0be5b-ef69-4119-b866-6894f6599ef6" >
+		<ee:transform doc:name="Transform Message" doc:id="e6aa8fbd-2c6e-4580-800d-0dc04ef5a038" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day3.txt", "application/csv", {"header": false})
+var  graph = inputData.column_0 map ($ splitBy "")
+var rowSizes = sizeOf(graph[0])
+var totalRows = sizeOf(graph)
+var calculate = (steps_right) -> graph map (row, index) -> row[mod(index * steps_right, rowSizes)]
+
+var scenario_1 = sizeOf(calculate(1) filter $ == "#")
+var scenario_2 = sizeOf(calculate(3) filter $ == "#")
+var scenario_3 = sizeOf(calculate(5) filter $ == "#")
+var scenario_4 = sizeOf(calculate(7) filter $ == "#")
+
+var scenario_5 = using(sc5_steps = (graph filter ((row, index) -> isEven(index))) map (row, index) -> row[mod(index * 1, rowSizes)])
+	sizeOf(sc5_steps filter $ == "#")
+	
+var scenarios = [scenario_1, scenario_2, scenario_3, scenario_4, scenario_5]
+---
+scenarios reduce ((item, acc) -> acc * item)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow></mule>

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="baf5d09b-d15e-42c3-8af8-5e63512d1e41" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="Day1-Part1" doc:id="84d8b255-435a-4e5e-818b-9de733235174" >
+		<ee:transform doc:name="Transform Message" doc:id="9156a1bb-c868-4d30-b46b-fcad49282aca" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+import some from dw::core::Arrays
+var inputData = readUrl("classpath://inputs/day1.txt", "application/csv", {"header": false})
+var numberList = inputData.column_0 map ($ as Number)
+---
+(numberList filter ((item, index) -> numberList some (item + $ == 2020))) 
+	reduce ((item, acc) -> acc * item)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="Day1-Part2" doc:id="2664f507-af14-4088-a180-101c090b7ed2" >
+		<http:listener doc:name="Listener" doc:id="af1f2649-fc1a-4db8-aaea-ba5379de46d3" config-ref="HTTP_Listener_config" path="/day1part2"/>
+		<ee:transform doc:name="Transform Message" doc:id="0aac3cd1-41f1-4a7f-a354-d561c5287506">
+			<ee:message>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="numberList" ><![CDATA[%dw 2.0
+output application/java
+var inputData = readUrl("classpath://inputs/day1.txt", "application/csv", {"header": false})
+var numberList = inputData.column_0 map ($ as Number)
+---
+numberList]]></ee:set-variable>
+				<ee:set-variable variableName="finalOutput" ><![CDATA[%dw 2.0
+output application/java
+---
+0]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<foreach doc:name="For Each" doc:id="9a74c113-7a2a-4a53-9d41-914b95cf2a2b" collection="#[vars.numberList]">
+			<ee:transform doc:name="Transform Message" doc:id="6be0828f-16cc-4833-a587-a91c52dc011c">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+(vars.numberList - payload) map [$, payload]]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<foreach doc:name="For Each" doc:id="608a3758-a712-40a3-8893-2030beec47ce" >
+				<ee:transform doc:name="Transform Message" doc:id="55c80806-1724-4b9d-80c6-3c3b32cf9e3b">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+flatten(((vars.numberList - 'payload') map (payload + $)) filter (trio) -> sum(trio) ~= 2020)]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<choice doc:name="Choice" doc:id="dbb4bcaa-24fd-4c2a-ab49-d21b22727c34">
+						<when expression="#[sizeOf(payload) &gt; 0]">
+							<set-variable value="#[payload reduce ((item, acc) -&gt; acc * item)]" doc:name="Set Variable" doc:id="90400544-cd6b-44ed-a9b5-4cb32ff92bbb" variableName="finalOutput" />
+						</when>
+					</choice>
+			</foreach>
+		</foreach>
+		<ee:transform doc:name="Transform Message" doc:id="adac2803-a154-427a-bbb0-a0bf27f04b68" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.finalOutput]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>

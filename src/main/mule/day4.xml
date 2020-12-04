@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+	<flow name="Day4Part1" doc:id="0f023a01-1663-4210-9ea1-1cd26c550706" >
+		<ee:transform doc:name="Transform Message" doc:id="42cce04d-5a07-4b58-8e0c-7f897ee59de9" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day4.txt", "text/plain")
+var passportStringArrays = (inputData splitBy "\n\n") map ($ splitBy "\n")
+var stringParser = (string) -> ((string splitBy " ") map ($ splitBy ":")) reduce (item, acc= {}) -> acc ++ {(item[0]): item[1]}
+var passportValidator = (passport: Object) -> 
+	using (keys = namesOf(passport))
+		(keys contains "byr") and
+		(keys contains "iyr") and 
+		(keys contains "eyr") and 
+		(keys contains "hgt") and
+		(keys contains "hcl") and
+		(keys contains "ecl") and
+		(keys contains "pid")
+var passports = passportStringArrays map (
+	$ map stringParser($)
+) map ($ reduce (item, acc = {}) -> acc ++ item)
+---
+sizeOf(passports filter passportValidator($))]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="Day4Part2" doc:id="fb15ba87-4211-4ad7-b8b6-3fa13bba93c2" >
+		<ee:transform doc:name="Transform Message" doc:id="d1eb01f1-ec26-458f-b6b1-ebe42f89e4ad" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day4.txt", "text/plain")
+var passportStringArrays = (inputData splitBy "\n\n") map ($ splitBy "\n")
+
+var stringParser = (string) -> 
+	((string splitBy " ") map ($ splitBy ":")) 
+		reduce (item, acc = {}) -> acc ++ {(item[0]): item[1]}
+		
+var passports = passportStringArrays map ($ map stringParser($)) map ($ reduce (item, acc = {}) -> acc ++ item)
+
+var passportValidator = (passport: Object) -> 
+	using (keys = namesOf(passport))
+		birthYearValidator(passport, keys) and
+		issueYearValidator(passport, keys) and 
+		expirationYearValidator(passport, keys) and 
+		heightValidator(passport, keys) and 
+		hairColorValidator(passport, keys) and 
+		eyeColorValidator(passport, keys) and 
+		passportIDValidator(passport, keys)
+
+var birthYearValidator = (passport: Object, keys: Array) -> 
+	(keys contains "byr") and
+	(passport.byr matches /\d{4}/) and
+	(passport.byr as Number >= 1920) and
+	(passport.byr as Number <= 2002)
+	
+var issueYearValidator = (passport: Object, keys: Array) ->
+	(keys contains "iyr") and
+	(passport.iyr matches /\d{4}/) and
+	(passport.iyr as Number >= 2010) and
+	(passport.iyr as Number <= 2020)
+	
+var expirationYearValidator = (passport: Object, keys: Array) ->
+	(keys contains "eyr") and
+	(passport.eyr matches /\d{4}/) and
+	(passport.eyr as Number >= 2020) and
+	(passport.eyr as Number <= 2030)
+
+var heightValidator = (passport: Object, keys: Array) ->
+	(keys contains "hgt") and
+	(passport.hgt match {
+	    case hgt matches /\d+cm/ -> 
+	        (hgt[0][0 to -3] as Number >= 150) and
+	        (hgt[0][0 to -3] as Number <= 193)
+	    case hgt matches /\d+in/ ->
+	        (hgt[0][0 to -3] as Number >= 59) and
+	        (hgt[0][0 to -3] as Number <= 76)
+	    else -> false
+	})
+	
+var hairColorValidator = (passport: Object, keys: Array) ->
+	(keys contains "hcl") and
+	(passport.hcl matches /#[a-f0-9]{6}/)
+	
+var eyeColorValidator = (passport: Object, keys: Array) ->
+	(keys contains "ecl") and
+	(["amb", "blu", "brn", "gry", "grn", "hzl", "oth"] contains passport.ecl)
+	
+var passportIDValidator = (passport: Object, keys: Array) ->
+	(keys contains "pid") and
+	(passport.pid matches /\d{9}/)
+---
+sizeOf(passports filter passportValidator($))]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
