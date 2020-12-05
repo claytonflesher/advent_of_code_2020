@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="day5Part1" doc:id="860b6cf8-4d00-4442-b05d-76da174c2a8a" >
+		<ee:transform doc:name="Transform Message" doc:id="a625b3e2-a68f-456a-82ee-7f2bf4add9c3" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = (readUrl("classpath://inputs/day5.txt", "application/csv", {"header": false})).column_0
+var boardingPasses = inputData map {
+	rowSteps: $[0 to 6] splitBy '',
+	columnSteps: $[7 to -1] splitBy ''
+}
+var calculateColumn = (columns: Array) -> 
+	using(
+		initialCandidates = (0 to 7), 
+		initialSize = 8, 
+		finalCandidates = 
+	(columns reduce ((column, acc = {candidates: initialCandidates, size: initialSize}) -> 
+		column match {
+			case 'L' -> {candidates: acc.candidates[0 to ((acc.size / 2) - 1)], size: acc.size / 2}
+			case 'R' -> {candidates: acc.candidates[(acc.size / 2) to -1], size: acc.size / 2}
+		}
+	)).candidates)[0]
+	
+var calculateRow = (rows: Array) ->
+	using(
+		initialCandidates = (0 to 127),
+		initialSize = 128,
+		finalCandidates = 
+	(rows reduce ((row, acc = {candidates: initialCandidates, size: initialSize}) -> 
+		row match {
+			case 'F' -> {candidates: acc.candidates[0 to ((acc.size / 2) - 1)], size: acc.size / 2}
+			case 'B' -> {candidates: acc.candidates[(acc.size / 2) to -1], size: acc.size / 2}
+		}
+	)).candidates)[0]
+
+
+var calculateSeatIDs = (seats) -> (seats map ($.rowNumber * 8) + $.columnNumber)
+
+var calculateHighestSeatID = (seatIDs) -> (seatIDs orderBy -$)[0]
+---
+using (seats = boardingPasses map {
+	rowNumber: calculateRow($.rowSteps),
+	columnNumber: calculateColumn($.columnSteps)
+})
+
+calculateHighestSeatID(calculateSeatIDs(seats))]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
