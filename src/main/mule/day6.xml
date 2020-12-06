@@ -22,17 +22,28 @@ count]]></ee:set-payload>
 			<ee:message >
 				<ee:set-payload ><![CDATA[%dw 2.0
 output application/json
+import every from dw::core::Arrays
+
 var inputData = readUrl("classpath://inputs/day6.txt", "text/plain")
 var answerStringArrays = (inputData splitBy "\n\n") map ($ splitBy "\n")
-var answerGroups = answerStringArrays map (group) -> group map (person) -> (person splitBy "") orderBy $
+var answerGroups = answerStringArrays map (group) -> group map (person) -> (person splitBy "")
 var uniques = using (arrays = (answerStringArrays map ($ joinBy '')) reduce (item, acc = []) -> 
 	(acc + (item splitBy '')))
 	arrays map (group) -> group distinctBy $
 ---
-answerGroups map {
-	group: $,
-	uniques: uniques[$$]
-}]]></ee:set-payload>
+using (
+	preppedGroups = answerGroups map {
+		group: $,
+		uniques: uniques[$$]
+	},
+	validAnswers = preppedGroups map (candidate) -> 
+		candidate.uniques filter (letter) -> 
+			candidate.group every (answers) -> 
+				answers contains letter
+
+)
+validAnswers reduce ((answers, acc = 0) ->  acc + sizeOf(answers))
+]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
 	</flow>
