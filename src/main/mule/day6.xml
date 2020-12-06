@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="day6Part1" doc:id="0b4ba31b-2253-418e-9649-60d5c38f4c9c" >
+		<ee:transform doc:name="Transform Message" doc:id="c3f81cab-94ab-4810-97f7-b07176c3c1e3" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day6.txt", "text/plain")
+var answerStringArrays = (inputData splitBy "\n\n") map ($ splitBy "\n")
+var count = (answerStringArrays map ($ joinBy '')) reduce (item, acc = 0) -> acc + sizeOf((item splitBy '') distinctBy $)
+---
+count]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="day6Part2" doc:id="694b9579-ad51-43ea-be48-1cc7145a11ee" >
+		<ee:transform doc:name="Transform Message" doc:id="4335a2be-ad59-4a51-8d3f-63788c158f5a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day6.txt", "text/plain")
+var answerStringArrays = (inputData splitBy "\n\n") map ($ splitBy "\n")
+var answerGroups = answerStringArrays map (group) -> group map (person) -> (person splitBy "") orderBy $
+var uniques = using (arrays = (answerStringArrays map ($ joinBy '')) reduce (item, acc = []) -> 
+	(acc + (item splitBy '')))
+	arrays map (group) -> group distinctBy $
+---
+answerGroups map {
+	group: $,
+	uniques: uniques[$$]
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>

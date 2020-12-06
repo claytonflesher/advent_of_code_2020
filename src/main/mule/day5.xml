@@ -24,7 +24,8 @@ var calculateColumn = (columns: Array) ->
 			case 'L' -> {candidates: acc.candidates[0 to ((acc.size / 2) - 1)], size: acc.size / 2}
 			case 'R' -> {candidates: acc.candidates[(acc.size / 2) to -1], size: acc.size / 2}
 		}
-	)).candidates)[0]
+	)).candidates)
+	finalCandidates[0]
 	
 var calculateRow = (rows: Array) ->
 	using(
@@ -36,7 +37,8 @@ var calculateRow = (rows: Array) ->
 			case 'F' -> {candidates: acc.candidates[0 to ((acc.size / 2) - 1)], size: acc.size / 2}
 			case 'B' -> {candidates: acc.candidates[(acc.size / 2) to -1], size: acc.size / 2}
 		}
-	)).candidates)[0]
+	)).candidates)
+	finalCandidates[0]
 
 
 var calculateSeatIDs = (seats) -> (seats map ($.rowNumber * 8) + $.columnNumber)
@@ -44,11 +46,64 @@ var calculateSeatIDs = (seats) -> (seats map ($.rowNumber * 8) + $.columnNumber)
 var calculateHighestSeatID = (seatIDs) -> (seatIDs orderBy -$)[0]
 ---
 using (seats = boardingPasses map {
-	rowNumber: calculateRow($.rowSteps),
-	columnNumber: calculateColumn($.columnSteps)
+	columnNumber: calculateColumn($.columnSteps),
+	rowNumber: calculateRow($.rowSteps)
 })
-
 calculateHighestSeatID(calculateSeatIDs(seats))]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="day5Part2" doc:id="e9766fa7-2aa3-4c7b-9537-c559a9fd3072" >
+		<ee:transform doc:name="Transform Message" doc:id="a08168e4-3395-49c1-97fc-9e56eb526490" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = (readUrl("classpath://inputs/day5.txt", "application/csv", {"header": false})).column_0
+import firstWith from dw::core::Arrays
+var boardingPasses = inputData map {
+	rowSteps: $[0 to 6] splitBy '',
+	columnSteps: $[7 to -1] splitBy ''
+}
+var calculateColumn = (columns: Array) -> 
+	using(
+		initialCandidates = (0 to 7), 
+		initialSize = 8, 
+		finalCandidates = 
+	(columns reduce ((column, acc = {candidates: initialCandidates, size: initialSize}) -> 
+		column match {
+			case 'L' -> {candidates: acc.candidates[0 to ((acc.size / 2) - 1)], size: acc.size / 2}
+			case 'R' -> {candidates: acc.candidates[(acc.size / 2) to -1], size: acc.size / 2}
+		}
+	)).candidates)
+	finalCandidates[0]
+	
+var calculateRow = (rows: Array) ->
+	using(
+		initialCandidates = (0 to 127),
+		initialSize = 128,
+		finalCandidates = 
+	(rows reduce ((row, acc = {candidates: initialCandidates, size: initialSize}) -> 
+		row match {
+			case 'F' -> {candidates: acc.candidates[0 to ((acc.size / 2) - 1)], size: acc.size / 2}
+			case 'B' -> {candidates: acc.candidates[(acc.size / 2) to -1], size: acc.size / 2}
+		}
+	)).candidates)
+	finalCandidates[0]
+
+
+var calculateSeatIDs = (seats) -> (seats map ($.rowNumber * 8) + $.columnNumber)
+
+var calculateHighestSeatID = (seatIDs) -> (seatIDs orderBy -$)[0]
+---
+using (
+	seats = boardingPasses map {
+		columnNumber: calculateColumn($.columnSteps),
+		rowNumber: calculateRow($.rowSteps)
+	},
+	filledSeats = calculateSeatIDs(seats) orderBy $,
+	allSeats = filledSeats[0] to filledSeats[-1]
+)
+allSeats firstWith (seat, index) -> filledSeats[index] != seat]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
 	</flow>
