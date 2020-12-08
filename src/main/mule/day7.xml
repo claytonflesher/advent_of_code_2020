@@ -34,7 +34,7 @@ sizeOf(bags_that_can_hold(rules, "shiny gold"))]]></ee:set-payload>
 			<ee:message >
 				<ee:set-payload ><![CDATA[%dw 2.0
 output application/json
-var inputData = readUrl("classpath://inputs/day7a.txt", "text/plain") splitBy "\n"
+var inputData = readUrl("classpath://inputs/day7.txt", "text/plain") splitBy "\n"
 var rules = using (pairs = inputData map ($ splitBy " bags contain "))
 	pairs map {
 		outer: $[0],
@@ -44,7 +44,6 @@ var rules = using (pairs = inputData map ($ splitBy " bags contain "))
 		}
 	}
 	
-	// shiny gold bags contain 2 pale maroon bags, 5 pale purple bags, 4 posh brown bags, 1 dotted turquoise bag.
 var bags_required = (rules, bag, number) ->
 	using (
 		bag_rule = (flatten((rules filter $.outer == bag).inners)) default [],
