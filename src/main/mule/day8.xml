@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="day8Part1" doc:id="4deb9ab6-7036-4753-8eb5-633f0f7d83b8" >
+		<ee:transform doc:name="Transform Message" doc:id="1f8399e0-5744-4217-8bf8-deac98cef064" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = (readUrl("classpath://inputs/day8.txt", "text/plain") splitBy "\n")
+	map (step) -> using ( pair = step splitBy " ")
+		{
+			action: pair[0],
+			number: pair[1] as Number
+		}
+var walk = (index: Number, acc: Number, previous_indexes: Array) -> 
+	if (previous_indexes contains index)
+		{
+			index: index,
+			acc: acc,
+			previous_indexes: previous_indexes
+		}
+	else
+		inputData[index].action match {
+			case "acc" -> using (
+					new_index = index + 1,
+					new_acc = acc + inputData[index].number,
+					steps = previous_indexes + index
+					)
+					walk(new_index, new_acc, steps)
+			case "jmp" -> using (
+					new_index = index + inputData[index].number,
+					new_acc = acc,
+					steps = previous_indexes + index
+					)
+					walk(new_index, new_acc, steps)
+			case "nop" -> using (
+					new_index = index + 1,
+					new_acc = acc,
+					steps = previous_indexes + index
+					) walk(new_index, new_acc, steps)
+		}
+---
+using (
+	index = 0,
+	acc = 0, 
+	previous_steps = []
+)
+walk(index, acc, previous_steps)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="day8Part2" doc:id="1500b913-befd-4121-8df1-9376f12b53d2" >
+		<ee:transform doc:name="Transform Message" doc:id="1e47da26-4a77-452b-af64-b4a1fedde6e0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+import firstWith, splitAt from dw::core::Arrays
+var inputData = (readUrl("classpath://inputs/day8.txt", "text/plain") splitBy "\n")
+	map (step, index) -> using ( pair = step splitBy " ")
+		{
+			action: pair[0],
+			number: pair[1] as Number,
+			index: index
+		}
+var walk = (index, acc: Number, previous_indexes: Array, all_steps: Array) -> 
+	if (previous_indexes contains index)
+		{
+			index: index,
+			acc: acc,
+			previous_indexes: previous_indexes,
+			terminated: false
+		}
+	else if (all_steps[index] == null)
+		{
+			index: index,
+			acc: acc,
+			previous_indexes: previous_indexes,
+			terminated: true
+		}
+	else
+		all_steps[index].action match {
+			case "acc" -> using (
+					new_index = index + 1,
+					new_acc = acc + all_steps[index].number,
+					steps = previous_indexes + index
+					)
+					walk(new_index, new_acc, steps, all_steps)
+			case "jmp" -> using (
+					new_index = index + all_steps[index].number,
+					new_acc = acc,
+					steps = previous_indexes + index
+					)
+					walk(new_index, new_acc, steps, all_steps)
+			case "nop" -> using (
+					new_index = index + 1,
+					new_acc = acc,
+					steps = previous_indexes + index
+					) 
+					walk(new_index, new_acc, steps, all_steps)
+		}
+---
+using (
+	switch = inputData firstWith (item, index) -> item.action match {
+		case "acc" -> false
+		case "jmp" -> using(split_data = inputData splitAt index) 
+				walk(0, 0, [], (split_data.l + {action: "nop", index: index, number: item.number}) ++ split_data.r[1 to -1]).terminated
+		case "nop" -> using(split_data = inputData splitAt index) 
+				walk(0, 0, [], (split_data.l + {action: "jmp", index: index, number: item.number}) ++ split_data.r[1 to -1]).terminated
+	},
+	flipped_switch = switch.action match {
+	case "jmp" -> {
+		action: "nop",
+		index: switch.index,
+		number: switch.number
+	}
+	case "nop" -> {
+		action: "jmp",
+		index: switch.index,
+		number: switch.number
+	}
+	},
+	new_input_data = inputData splitAt switch.index
+)
+walk(0, 0, [], (new_input_data.l + flipped_switch ++ new_input_data.r[1 to -1]))]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
