@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="day7Part1" doc:id="392ed823-2b4e-4046-aa66-e0ebb8d50f8d" >
+		<ee:transform doc:name="Transform Message" doc:id="3d4b5e38-325c-4f16-812c-f26e0bef7b60" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day7.txt", "text/plain") splitBy "\n"
+var ruleParser = using (pairs = inputData map ($ splitBy " bags contain "))
+	pairs map {
+		outer: $[0],
+		inners: ($[1] splitBy ", ") map using (rule = $ match /(\d+) ([a-z]+ [a-z]+).+/) {
+			number: (rule[1] default 0) as Number,
+			color: rule[2] default "NO OTHER BAGS"
+		}
+	}
+var bags_that_can_hold = (rules, color) -> 
+	using (valid_bags = ((rules filter sizeOf($.inners filter (rule) -> rule.color == color ) > 0).outer) default [])
+	(valid_bags ++ flatten(valid_bags reduce (bag, acc = []) -> acc + bags_that_can_hold(rules, bag))) distinctBy $
+---
+using (
+	rules = ruleParser
+)
+sizeOf(bags_that_can_hold(rules, "shiny gold"))]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="day7Part2" doc:id="5669d004-bbb5-49e7-8b66-f8a7bbae49c5" >
+		<ee:transform doc:name="Transform Message" doc:id="4fe147dd-6164-429b-88ac-59c47c8f74a6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var inputData = readUrl("classpath://inputs/day7a.txt", "text/plain") splitBy "\n"
+var rules = using (pairs = inputData map ($ splitBy " bags contain "))
+	pairs map {
+		outer: $[0],
+		inners: ($[1] splitBy ", ") map using (rule = $ match /(\d+) ([a-z]+ [a-z]+).+/) {
+			number: (rule[1] default 0) as Number,
+			color: rule[2] default "NO OTHER BAGS"
+		}
+	}
+	
+	// shiny gold bags contain 2 pale maroon bags, 5 pale purple bags, 4 posh brown bags, 1 dotted turquoise bag.
+var bags_required = (rules, bag, number) ->
+	using (
+		bag_rule = (flatten((rules filter $.outer == bag).inners)) default [],
+		all_bags = (bag_rule reduce (b, acc = []) -> acc + bags_required(rules, b.color, number * b.number))
+	)
+	{number: number, color: bag} ++ {children: all_bags}
+
+---
+sum((bags_required(rules, 'shiny gold', 1))..number) - 1]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
